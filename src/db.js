@@ -1,9 +1,20 @@
 const { Pool } = require("pg");
 const config = require("./config");
 
-const pool = new Pool({
+const poolConfig = {
+  max: config.dbPoolMax,
+  idleTimeoutMillis: config.dbIdleTimeoutMs,
+  connectionTimeoutMillis: config.dbConnectionTimeoutMs,
   connectionString: config.databaseUrl
-});
+};
+
+if (config.dbSsl) {
+  poolConfig.ssl = {
+    rejectUnauthorized: config.dbSslRejectUnauthorized
+  };
+}
+
+const pool = new Pool(poolConfig);
 
 async function withTransaction(work) {
   const client = await pool.connect();

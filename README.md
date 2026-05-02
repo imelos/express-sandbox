@@ -6,6 +6,7 @@ Minimal Express + PostgreSQL backend for frontend UI localization with:
 - full-locale translation replacement
 - JWT-protected admin endpoints
 - ETag-based client sync via locale version numbers
+- migration-based schema management for production
 
 ## Why the schema is adjusted
 
@@ -31,10 +32,10 @@ npm install
 cp .env.example .env
 ```
 
-3. Create the PostgreSQL schema:
+3. Run migrations:
 
 ```bash
-psql "$DATABASE_URL" -f sql/schema.sql
+npm run migrate:up
 ```
 
 4. Start the server:
@@ -42,6 +43,30 @@ psql "$DATABASE_URL" -f sql/schema.sql
 ```bash
 npm run dev
 ```
+
+## AWS RDS
+
+For Amazon RDS, point `DATABASE_URL` at the RDS Postgres instance:
+
+```env
+DATABASE_URL=postgres://username:password@db-name.xxxxxx.us-east-1.rds.amazonaws.com:5432/translations_db
+```
+
+Typical production settings:
+
+```env
+DB_SSL=true
+DB_SSL_REJECT_UNAUTHORIZED=true
+DB_POOL_MAX=10
+```
+
+Run migrations from any machine or CI job that can reach the RDS instance:
+
+```bash
+npm run migrate:up
+```
+
+`schema.sql` can still be used as a bootstrap/reference file, but production deployments should use migrations.
 
 ## Public API
 
@@ -107,6 +132,13 @@ Replaces the entire locale payload and bumps the version:
 ### `DELETE /admin/translations/:locale/:key`
 
 Deletes one translation key and bumps the version.
+
+## Production notes
+
+- Do not keep admin credentials only in env long-term; move them into a users table with hashed passwords.
+- Use AWS Secrets Manager or Parameter Store for `DATABASE_URL` and `JWT_SECRET`.
+- Run `npm run migrate:up` during deployment before starting the app.
+- Lock down the RDS security group so only your app/CI can connect.
 
 ## Suggested improvements
 

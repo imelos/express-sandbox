@@ -18,15 +18,3 @@ CREATE TABLE locale_versions (
   version INT NOT NULL DEFAULT 1,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE OR REPLACE FUNCTION bump_locale_version(target_locale_id INT)
-RETURNS VOID AS $$
-BEGIN
-  INSERT INTO locale_versions (locale_id, version, updated_at)
-  VALUES (target_locale_id, 2, NOW())
-  ON CONFLICT (locale_id)
-  DO UPDATE
-    SET version = locale_versions.version + 1,
-        updated_at = NOW();
-END;
-$$ LANGUAGE plpgsql;
