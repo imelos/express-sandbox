@@ -8,6 +8,7 @@ Minimal Express + PostgreSQL backend for frontend UI localization with:
 - DB-backed admin users with hashed passwords
 - ETag-based client sync via locale version numbers
 - migration-based schema management for production
+- zod validation, security headers, rate limiting, and structured JSON logs
 
 ## Why the schema is adjusted
 
@@ -65,6 +66,7 @@ Typical production settings:
 DB_SSL=true
 DB_SSL_REJECT_UNAUTHORIZED=true
 DB_POOL_MAX=10
+LOGIN_RATE_LIMIT_MAX=10
 ```
 
 Run migrations from any machine or CI job that can reach the RDS instance:
@@ -154,9 +156,11 @@ This keeps the model simple: translations are always replaced as a whole locale 
 - Run `npm run migrate:up` during deployment before starting the app.
 - Lock down the RDS security group so only your app/CI can connect.
 - Create admin users through a secure operational flow, not by hardcoding credentials in source control.
+- Responses include `X-Request-Id` for tracing.
+- Requests and server errors are emitted as JSON log lines.
+- `POST /admin/login` and authenticated admin routes are rate-limited.
 
 ## Suggested improvements
 
-- Add request validation with a schema library such as `zod` or `joi`.
 - If your translation files get large, add Redis caching keyed by `locale:version`.
 - If you need audit history, add a `translation_events` table instead of overwriting in place.

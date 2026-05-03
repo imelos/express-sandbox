@@ -5,29 +5,27 @@ const config = require("../config");
 const db = require("../db");
 const { requireAdmin } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
+const validate = require("../middleware/validation");
+const { loginRateLimiter, adminRateLimiter } = require("../middleware/rateLimiters");
+const {
+  loginBodySchema,
+  createLocaleBodySchema,
+  localeParamsSchema,
+  translationParamsSchema,
+  translationsBodySchema
+} = require("../schemas");
 
 const router = express.Router();
 
-router.post("/login", asyncHandler(async (req, res) => {
-  const { username, password } = req.body || {};
-
-  if (
-    typeof username !== "string" ||
-    typeof password !== "string" ||
-    !username.trim() ||
-    !password
-  ) {
-    return res.status(400).json({ error: "Username and password are required" });
-  }
-
-  const normalizedUsername = username.trim().toLowerCase();
+router.post("/login", loginRateLimiter, validate(loginBodySchema), asyncHandler(async (req, res) => {
+  const { username, password } = req.body;
   const result = await db.query(
     `
       SELECT id, username, password_hash
       FROM admin_users
       WHERE username = $1
     `,
-    [normalizedUsername]
+    [username]
   );
 
   if (result.rowCount === 0) {
@@ -56,22 +54,14 @@ router.post("/login", asyncHandler(async (req, res) => {
   return res.json({ token });
 }));
 
+router.use(adminRateLimiter);
 router.use(requireAdmin);
 
 router.post(
   "/locales",
+  validate(createLocaleBodySchema),
   asyncHandler(async (req, res) => {
-    const { code } = req.body || {};
-
-    if (!code || typeof code !== "string") {
-      return res.status(400).json({ error: "Field 'code' is required" });
-    }
-
-    const localeCode = code.trim().toLowerCase();
-
-    if (!localeCode) {
-      return res.status(400).json({ error: "Field 'code' cannot be empty" });
-    }
+    const { code: localeCode } = req.body;
 
     const result = await db.withTransaction(async (client) => {
       const insertedLocale = await client.query(
@@ -100,12 +90,9 @@ router.post(
 
 router.delete(
   "/locales/:code",
+  validate(localeParamsSchema, "params"),
   asyncHandler(async (req, res) => {
-    const localeCode = String(req.params.code || "").trim().toLowerCase();
-
-    if (!localeCode) {
-      return res.status(400).json({ error: "Locale code is required" });
-    }
+    const { code: localeCode } = req.params;
 
     const result = await db.query(
       "DELETE FROM locales WHERE code = $1 RETURNING code",
@@ -122,23 +109,11 @@ router.delete(
 
 router.put(
   "/translations/:locale",
+  validate(translationParamsSchema, "params"),
+  validate(translationsBodySchema),
   asyncHandler(async (req, res) => {
-    const localeCode = String(req.params.locale || "").trim().toLowerCase();
+    const { locale: localeCode } = req.params;
     const translations = req.body;
-
-    if (!translations || Array.isArray(translations) || typeof translations !== "object") {
-      return res.status(400).json({ error: "Body must be a JSON object" });
-    }
-
-    for (const [key, value] of Object.entries(translations)) {
-      if (!key.trim()) {
-        return res.status(400).json({ error: "Translation keys cannot be empty" });
-      }
-
-      if (typeof value !== "string") {
-        return res.status(400).json({ error: `Translation '${key}' must be a string` });
-      }
-    }
 
     const result = await db.withTransaction(async (client) => {
       const localeResult = await client.query(

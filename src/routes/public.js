@@ -1,6 +1,8 @@
 const express = require("express");
 const db = require("../db");
 const asyncHandler = require("../utils/asyncHandler");
+const validate = require("../middleware/validation");
+const { translationsQuerySchema } = require("../schemas");
 const { formatEtag, parseIfNoneMatch } = require("../utils/http");
 
 const router = express.Router();
@@ -18,12 +20,9 @@ router.get(
 
 router.get(
   "/translations",
+  validate(translationsQuerySchema, "query"),
   asyncHandler(async (req, res) => {
-    const locale = String(req.query.locale || "").trim().toLowerCase();
-
-    if (!locale) {
-      return res.status(400).json({ error: "Query parameter 'locale' is required" });
-    }
+    const { locale } = req.query;
 
     const localeResult = await db.query(
       `
