@@ -102,10 +102,6 @@ Returns an array of locale codes for the UI language selector:
 }
 ```
 
-### `GET /admin/locales`
-
-Returns locale metadata including current version.
-
 ### `POST /admin/locales`
 
 ```json
@@ -114,7 +110,7 @@ Returns locale metadata including current version.
 }
 ```
 
-### `DELETE /admin/locales/:id`
+### `DELETE /admin/locales/:code`
 
 Deletes the locale and cascades translations/version state.
 
@@ -129,9 +125,19 @@ Replaces the entire locale payload and bumps the version:
 }
 ```
 
-### `DELETE /admin/translations/:locale/:key`
+Admin should read the current locale payload through the public endpoint:
 
-Deletes one translation key and bumps the version.
+```http
+GET /translations?locale=en
+```
+
+and write changes back through:
+
+```http
+PUT /admin/translations/en
+```
+
+This keeps the model simple: translations are always replaced as a whole locale object.
 
 ## Production notes
 

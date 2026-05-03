@@ -33,22 +33,6 @@ router.post("/login", (req, res) => {
 
 router.use(requireAdmin);
 
-router.get(
-  "/locales",
-  asyncHandler(async (req, res) => {
-    const result = await db.query(
-      `
-        SELECT l.id, l.code, COALESCE(lv.version, 1) AS version
-        FROM locales l
-        LEFT JOIN locale_versions lv ON lv.locale_id = l.id
-        ORDER BY l.code ASC
-      `
-    );
-
-    res.json(result.rows);
-  })
-);
-
 router.post(
   "/locales",
   asyncHandler(async (req, res) => {
@@ -90,17 +74,17 @@ router.post(
 );
 
 router.delete(
-  "/locales/:id",
+  "/locales/:code",
   asyncHandler(async (req, res) => {
-    const localeId = Number(req.params.id);
+    const localeCode = String(req.params.code || "").trim().toLowerCase();
 
-    if (!Number.isInteger(localeId)) {
-      return res.status(400).json({ error: "Locale id must be an integer" });
+    if (!localeCode) {
+      return res.status(400).json({ error: "Locale code is required" });
     }
 
     const result = await db.query(
-      "DELETE FROM locales WHERE id = $1 RETURNING id",
-      [localeId]
+      "DELETE FROM locales WHERE code = $1 RETURNING code",
+      [localeCode]
     );
 
     if (result.rowCount === 0) {
@@ -176,66 +160,6 @@ router.put(
         locale: localeCode,
         version: nextVersion,
         translationsCount: entries.length
-      };
-    });
-
-    res.json(result);
-  })
-);
-
-router.delete(
-  "/translations/:locale/:key",
-  asyncHandler(async (req, res) => {
-    const localeCode = String(req.params.locale || "").trim().toLowerCase();
-    const key = String(req.params.key || "");
-
-    if (!key.trim()) {
-      return res.status(400).json({ error: "Translation key is required" });
-    }
-
-    const result = await db.withTransaction(async (client) => {
-      const localeResult = await client.query(
-        "SELECT id FROM locales WHERE code = $1",
-        [localeCode]
-      );
-
-      if (localeResult.rowCount === 0) {
-        const error = new Error("Locale not found");
-        error.statusCode = 404;
-        throw error;
-      }
-
-      const localeId = localeResult.rows[0].id;
-      const deleteResult = await client.query(
-        `
-          DELETE FROM translations
-          WHERE locale_id = $1 AND key = $2
-          RETURNING key
-        `,
-        [localeId, key]
-      );
-
-      if (deleteResult.rowCount === 0) {
-        const error = new Error("Translation key not found");
-        error.statusCode = 404;
-        throw error;
-      }
-
-      const versionResult = await client.query(
-        `
-          INSERT INTO locale_versions (locale_id, version)
-          VALUES ($1, 2)
-          ON CONFLICT (locale_id)
-          DO UPDATE SET version = locale_versions.version + 1
-          RETURNING version
-        `,
-        [localeId]
-      );
-
-      return {
-        locale: localeCode,
-        deletedKey: key,
-        version: versionResult.rows[0].version
       };
     });
 
