@@ -31,7 +31,5 @@ module.exports = {
   dbPoolMax: Number(process.env.DB_POOL_MAX || 10),
   dbIdleTimeoutMs: Number(process.env.DB_IDLE_TIMEOUT_MS || 30000),
   dbConnectionTimeoutMs: Number(process.env.DB_CONNECTION_TIMEOUT_MS || 10000),
-  jwtSecret: required("JWT_SECRET"),
-  adminUsername: required("ADMIN_USERNAME"),
-  adminPassword: required("ADMIN_PASSWORD")
+  jwtSecret: required("JWT_SECRET")
 };

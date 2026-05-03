@@ -1,4 +1,5 @@
 const express = require("express");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const config = require("../config");
 const db = require("../db");
@@ -7,20 +8,44 @@ const asyncHandler = require("../utils/asyncHandler");
 
 const router = express.Router();
 
-router.post("/login", (req, res) => {
+router.post("/login", asyncHandler(async (req, res) => {
   const { username, password } = req.body || {};
 
   if (
-    username !== config.adminUsername ||
-    password !== config.adminPassword
+    typeof username !== "string" ||
+    typeof password !== "string" ||
+    !username.trim() ||
+    !password
   ) {
+    return res.status(400).json({ error: "Username and password are required" });
+  }
+
+  const normalizedUsername = username.trim().toLowerCase();
+  const result = await db.query(
+    `
+      SELECT id, username, password_hash
+      FROM admin_users
+      WHERE username = $1
+    `,
+    [normalizedUsername]
+  );
+
+  if (result.rowCount === 0) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
+
+  const adminUser = result.rows[0];
+  const passwordMatches = await bcrypt.compare(password, adminUser.password_hash);
+
+  if (!passwordMatches) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
   const token = jwt.sign(
     {
       role: "admin",
-      username
+      adminUserId: adminUser.id,
+      username: adminUser.username
     },
     config.jwtSecret,
     {
@@ -29,7 +54,7 @@ router.post("/login", (req, res) => {
   );
 
   return res.json({ token });
-});
+}));
 
 router.use(requireAdmin);
 

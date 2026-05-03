@@ -5,6 +5,7 @@ Minimal Express + PostgreSQL backend for frontend UI localization with:
 - locale management
 - full-locale translation replacement
 - JWT-protected admin endpoints
+- DB-backed admin users with hashed passwords
 - ETag-based client sync via locale version numbers
 - migration-based schema management for production
 
@@ -38,7 +39,13 @@ cp .env.example .env
 npm run migrate:up
 ```
 
-4. Start the server:
+4. Create the first admin user:
+
+```bash
+node src/scripts/createAdminUser.js admin strong-password
+```
+
+5. Start the server:
 
 ```bash
 npm run dev
@@ -102,6 +109,8 @@ Returns an array of locale codes for the UI language selector:
 }
 ```
 
+`username` is matched against the `admin_users` table and `password` is verified against a bcrypt hash.
+
 ### `POST /admin/locales`
 
 ```json
@@ -141,14 +150,13 @@ This keeps the model simple: translations are always replaced as a whole locale 
 
 ## Production notes
 
-- Do not keep admin credentials only in env long-term; move them into a users table with hashed passwords.
 - Use AWS Secrets Manager or Parameter Store for `DATABASE_URL` and `JWT_SECRET`.
 - Run `npm run migrate:up` during deployment before starting the app.
 - Lock down the RDS security group so only your app/CI can connect.
+- Create admin users through a secure operational flow, not by hardcoding credentials in source control.
 
 ## Suggested improvements
 
-- Prefer storing admin users in PostgreSQL with hashed passwords instead of env-based credentials.
 - Add request validation with a schema library such as `zod` or `joi`.
 - If your translation files get large, add Redis caching keyed by `locale:version`.
 - If you need audit history, add a `translation_events` table instead of overwriting in place.

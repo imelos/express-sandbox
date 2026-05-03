@@ -10,11 +10,15 @@ CREATE TABLE translations (
   PRIMARY KEY (locale_id, key)
 );
 
-CREATE INDEX translations_locale_id_key_idx
-  ON translations (locale_id, key);
-
 CREATE TABLE locale_versions (
   locale_id INT PRIMARY KEY REFERENCES locales(id) ON DELETE CASCADE,
   version INT NOT NULL DEFAULT 1,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE admin_users (
+  id SERIAL PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
