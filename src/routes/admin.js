@@ -17,6 +17,25 @@ const {
 
 const router = express.Router();
 
+function buildBulkTranslationsInsert(localeId, entries) {
+  const placeholders = [];
+  const values = [];
+
+  entries.forEach(([key, value], index) => {
+    const base = index * 3;
+    placeholders.push(`($${base + 1}, $${base + 2}, $${base + 3})`);
+    values.push(localeId, key, value);
+  });
+
+  return {
+    text: `
+      INSERT INTO translations (locale_id, key, value)
+      VALUES ${placeholders.join(", ")}
+    `,
+    values
+  };
+}
+
 router.post("/login", loginRateLimiter, validate(loginBodySchema), asyncHandler(async (req, res) => {
   const { username, password } = req.body;
   const result = await db.query(
@@ -134,14 +153,9 @@ router.put(
       const entries = Object.entries(translations);
       let nextVersion = null;
 
-      for (const [key, value] of entries) {
-        await client.query(
-          `
-            INSERT INTO translations (locale_id, key, value)
-            VALUES ($1, $2, $3)
-          `,
-          [localeId, key, value]
-        );
+      if (entries.length > 0) {
+        const bulkInsert = buildBulkTranslationsInsert(localeId, entries);
+        await client.query(bulkInsert.text, bulkInsert.values);
       }
 
       const versionResult = await client.query(
